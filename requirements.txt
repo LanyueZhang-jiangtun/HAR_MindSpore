@@ -1,0 +1,6 @@
+mindspore==2.11.0
+numpy<2          # 必须！numpy>=2 会让 MindSpore 的 Conv1d 等在训练时崩（见 src/models.py 注释）
+scipy
+scikit-learn
+joblib
+matplotlib
