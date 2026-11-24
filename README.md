@@ -1,162 +1,156 @@
-# 基于 MindSpore 的 IMU 传感器人体活动识别（HAR）
+# 基于 MindSpore 的人体活动识别
 
-四人小组作业骨架。使用华为 **MindSpore** 在 UCI mHealth 公开数据集上，
-构建"IMU 原始信号 → 人体活动分类"的完整流水线：数据 → 特征 → 基线 → 深度学习 → 评估 → 部署。
+本项目使用可穿戴设备记录的三轴加速度信号，识别一个人正在站立、步行、骑车等活动。项目包含数据预处理、传统机器学习基线、MindSpore 深度学习模型、留一被试评估和 MindIR 导出流程。
 
-## 环境
+## 项目概况
 
-- Python 3.11 虚拟环境（已装 MindSpore 2.11.0 / scikit-learn / matplotlib，CPU 模式）：
-  `E:/python_ziliao/.venv-ms311/Scripts/python.exe`（下文记为 `PY`）
-- 数据集 `mhealth-uci.zip`（72MB，UCI mHealth，doi:10.24432/C5TW22）已存在
-  `E:/python_ziliao/a机器学习1122/`，`config.py` 会自动定位，无需复制。
+- **数据集：** [UCI mHealth Dataset](https://archive.ics.uci.edu/dataset/319/mhealth+dataset)，10 名参与者的胸戴传感器数据，采样率 50 Hz。
+- **当前分类：** stand（站立）、sit（坐）、lie（躺）、walk（步行）、stairs（爬楼梯）、bike（骑车）、jog（慢跑）。
+- **输入：** 每个样本是 3 秒的三轴加速度信号，即 `(3, 150)`。
+- **评估方式：** 留一被试交叉验证（LOSO）。每轮留出一位参与者作为测试集，其余参与者用于训练，测试模型对新参与者的泛化能力。
+- **主要模型：** 手工特征 + scikit-learn 分类器，以及 MindSpore 1D-CNN、MLP 和 BiLSTM。
 
-## 运行顺序（按依赖）
+## 实验结果
 
-| 步骤 | 命令 | 产出 | 负责人 |
-|---|---|---|---|
-| 1 数据 EDA | `PY scripts/01_eda.py` | 逐被试逐类窗口数表、波形图、谱图 | 甲 |
-| 2 基线 | `PY scripts/02_baseline.py` | 4 模型 LOSO 对比表、混淆矩阵、t-SNE（`--feature-set full/time/freq/extended` 特征消融） | 乙 |
-| 3 MindSpore | `PY scripts/03_train_cnn.py --epochs 80` | CNN/MLP LOSO 结果、学习曲线、checkpoint（`--augment` 数据增强消融） | 丙 |
-| 3b BiLSTM | `PY scripts/03b_train_bilstm.py --epochs 80` | BiLSTM 第二深度基线 LOSO | 丙 |
-| 4 报告图 | `PY scripts/04_report_figures.py` | 全部报告图 + 最终对比表 | 丁 |
-| 5 手机验证 | `PY scripts/05_phone_test.py` | 真机数据推理、逐文件准确率、phone_test.json（`--no-align` 轴对齐消融） | 丁 |
-| 6 跨设备诊断 | `PY scripts/06_cross_device_diag.py` | 强度对比 + RF 特征通路跨设备测试 | 丁 |
-| 7 MindIR | `PY scripts/07_export_mindir.py` | cnn_full.mindir（标准化烤入，带冒烟测试） | 丁 |
-| 8 误差分析 | `PY scripts/08_error_analysis.py` | 逐被试精度表 + 易混类别对（error_analysis.md） | 乙 |
+以下为仓库当前记录的 7 类实验结果。手工特征基线中，扩展特征 + SVM 表现最好；深度学习模型使用原始信号的结果也列在这里作比较。
 
-所有结果输出到 `outputs/`（figures/ 图、results/ JSON 与对比表），可整目录进附录。
+| 模型 | 输入 | Accuracy | Macro-F1 |
+|---|---|---:|---:|
+| SVM | 26 维扩展特征 | **83.19%** | **82.87%** |
+| Random Forest | 12 维基础特征 | 81.83% | 81.75% |
+| BiLSTM | 原始信号 | 79.76% | 79.80% |
+| 1D-CNN | 原始信号 | 79.11% | 78.14% |
 
-## 目录结构与分工
+这组结果来自 10 名参与者的留一被试交叉验证，数据集共切出 1,398 个窗口。另有 5 类实验将站立、坐和躺合并为“静态”活动；结果和分析见[项目报告](docs/报告.md)。不同类别定义下的分数不可直接比较。
 
+## 快速开始
+
+### 1. 获取代码和数据
+
+```bash
+git clone https://github.com/LanyueZhang-jiangtun/HAR_MindSpore.git
+cd HAR_MindSpore
 ```
+
+从 [UCI mHealth Dataset 页面](https://archive.ics.uci.edu/dataset/319/mhealth+dataset)下载数据压缩包，将文件重命名为 `mhealth-uci.zip` 后放到：
+
+```text
+data/mhealth-uci.zip
+```
+
+数据集较大，未随代码仓库提交。`config.py` 默认从 `data/mhealth-uci.zip` 读取数据。
+如果数据存放在其他位置，可在运行脚本前设置 `HAR_DATASET_ZIP`：
+
+```powershell
+$env:HAR_DATASET_ZIP = "D:\datasets\mhealth-uci.zip"
+```
+
+macOS / Linux：
+
+```bash
+export HAR_DATASET_ZIP="$HOME/datasets/mhealth-uci.zip"
+```
+
+### 2. 安装依赖
+
+项目使用 Python 3.11。创建虚拟环境并安装 `requirements.txt` 中列出的依赖：
+
+```bash
+python -m venv .venv
+```
+
+Windows PowerShell：
+
+```powershell
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+macOS / Linux：
+
+```bash
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+依赖版本固定为项目当前验证环境：Python 3.11、MindSpore 2.11.0 CPU 和 NumPy 1.26.4。MindSpore 安装包与操作系统、Python 版本和硬件有关；如果安装失败，请按 [MindSpore 安装指南](https://www.mindspore.cn/install)确认当前平台支持该版本。
+
+### 3. 运行分析和训练
+
+建议先检查数据和生成基础图表，再运行分类基线与深度模型：
+
+```bash
+python scripts/01_eda.py
+python scripts/02_baseline.py
+python scripts/03_train_cnn.py
+```
+
+`03_train_cnn.py` 会比较 1D-CNN 与 MLP，并训练一个用于导出的全量 CNN。默认训练轮数为 80；快速检查流程时可减少轮数：
+
+```bash
+python scripts/03_train_cnn.py --epochs 4
+```
+
+可选实验：
+
+```bash
+python scripts/02_baseline.py --feature-set extended
+python scripts/03b_train_bilstm.py --epochs 80
+python scripts/03_train_cnn.py --augment
+```
+
+生成汇总报告图、逐被试误差分析和 MindIR 模型：
+
+```bash
+python scripts/04_report_figures.py
+python scripts/08_error_analysis.py
+python scripts/07_export_mindir.py
+```
+
+这些汇总和导出脚本依赖前面脚本生成的结果文件。`05_phone_test.py` 和 `06_cross_device_diag.py` 属于可选的手机跨设备实验，需要另外准备符合脚本要求的手机传感器 CSV 数据。
+
+## 输出文件
+
+运行脚本后，生成文件会保存在 `outputs/`：
+
+- `outputs/figures/`：波形、频谱、混淆矩阵和学习曲线。
+- `outputs/results/`：模型指标、逐被试预测、训练曲线和导出的模型。
+
+这些运行产物及数据压缩包不会提交到 GitHub。克隆仓库后需要先准备数据并运行相应脚本，才能生成它们。
+
+## 目录结构
+
+```text
 HAR_MindSpore/
-├── config.py                # 全局配置：路径/窗口/活动映射/训练超参
-├── data/phone_labels.json   # 手机文件真实标签（CSV label 列有误时的覆盖映射）
+├── config.py                 # 数据路径、活动类别、窗口长度和训练参数
+├── requirements.txt          # Python 依赖
+├── data/
+│   └── phone_labels.json     # 手机测试文件的标签覆盖配置
 ├── src/
-│   ├── dataset.py           # [甲] 数据加载、3s 切窗
-│   ├── features.py          # [甲] 特征集：full(12)/time(9)/freq(3)/extended(26)
-│   ├── baseline.py          # [乙] LR/SVM/RF/GBDT + LOSO 评估
-│   ├── models.py            # [丙] MotionMLP（对照）/ MotionCNN（主模型）/ MotionBiLSTM
-│   ├── train_mindspore.py   # [丙] LOSO 训练框架（--augment 增强）、学习曲线、checkpoint
-│   ├── evaluate.py          # [丁] 对比表（md/csv）、结果读取
-│   └── visualize.py         # [丁] 波形/谱图/混淆矩阵/t-SNE/学习曲线
-├── scripts/
-│   ├── 01_eda.py            # [甲] 入口
-│   ├── 02_baseline.py       # [乙] 入口（--feature-set 消融）
-│   ├── 03_train_cnn.py      # [丙] 入口（--epochs / --lr / --augment）
-│   ├── 03b_train_bilstm.py  # [丙] BiLSTM 基线
-│   ├── 04_report_figures.py # [丁] 入口
-│   ├── 05_phone_test.py     # [丁] 手机真机验证（--no-align 消融）
-│   ├── 06_cross_device_diag.py  # [丁] 跨设备差异定量诊断
-│   ├── 07_export_mindir.py  # [丁] MindIR 导出（标准化烤入）
-│   └── 08_error_analysis.py # [乙] 逐被试误差分析
+│   ├── dataset.py            # 读取数据并切分窗口
+│   ├── features.py           # 提取时域、频域和扩展特征
+│   ├── baseline.py           # scikit-learn 基线与 LOSO 评估
+│   ├── models.py             # CNN、MLP 和 BiLSTM
+│   ├── train_mindspore.py    # MindSpore 训练与评估
+│   ├── evaluate.py           # 结果读取和对比表
+│   └── visualize.py          # 图表生成
+├── scripts/                  # 可直接运行的分析、训练和导出脚本
 └── docs/
-    ├── 报告.md              # 正式报告（含全部实测数字）
+    ├── 报告.md               # 实验过程、结果和局限
     └── 报告模板.md
 ```
 
-## 评估协议（全项目统一，报告的核心卖点）
+## 当前限制与后续方向
 
-**留一被试交叉验证（Leave-One-Subject-Out）**：10 个被试，每次用 9 人训练、
-剩下 1 人测试。衡量"没见过的被试"上的泛化能力，比随机切分严格得多。
+- 当前使用 7 类活动，且只读取胸戴传感器的三轴加速度；其他传感器通道尚未融合。
+- 手机跨设备测试样本较少，现有结果不能代表不同手机、佩戴位置或参与者上的普遍表现。
+- 7 类任务中静态活动较容易混淆；5 类实验合并了站立、坐和躺，适合与 7 类细粒度结果对照。
+- 手机测试目前没有开放集拒识能力，训练类别之外的活动可能被误判为已知类别。
 
-## 手机真机验证（scripts/05_phone_test.py）
+后续可优先补充更多参与者和手机采集数据，再评估跨设备泛化；也可以加入多传感器融合、类别不平衡处理和开放集拒识实验。
 
-模型是在胸戴传感器（mHealth）上训练的，用手机（口袋里）录的数据验证，
-检验"跨设备"泛化。处理链：60Hz→50Hz 重采样 → 重力轴对齐（手机重力轴不定，
-自动取 |直流| 最大的轴映射到 x 并翻负号）→ 3s 切窗 → 训练集 mean/std 标准化 → 推理。
+## 相关资料
 
-录制规范（每段一个 CSV，列名固定）：
-
-- 列名：`time_s, ax_m_s2, ay_m_s2, az_m_s2, label, participant`（单位 m/s²）
-- **每文件只录一种活动、一个被试**，活动名必须和 `config.USE_LABELS` 的英文名一致
-  （当前 7 类：stand / sit / lie / walk / stairs / bike / jog）
-- 每类每被试 ≥1 分钟（原协议），手机位置全程固定（建议后裤袋）
-- 现有数据：`a机器学习1122/P01_walk_*.csv`（P01 三段，各约 30s；真实活动为
-  shake/walk/jog，见 `data/phone_labels.json`）
-- **CSV 标签列标错了就在 `data/phone_labels.json` 写 文件名→真实标签 映射**，
-  05 会自动覆盖（类外活动如 shake 会计入"类外"而不计准确率）
-- 跑法：`PY scripts/05_phone_test.py`（默认扫该目录 P01_*.csv），
-  结果在 `outputs/results/phone_test.json`（逐文件准确率 + 预测分布）
-
-已知局限（写报告）：训练数据重力在 x 轴（胸戴），手机重力轴不定（P01 在 z 轴），
-轴对齐只能恢复"哪个轴是重力轴"，y/z 相对方向无法恢复；口袋信号还叠加腿部运动。
-
-## 扩展任务状态（工作量的来源）
-
-- **甲**：✅ 特征扩充 26 维（extended）+ 消融（`02 --feature-set`）：extended+SVM
-  **83.2%** 为新最佳基线；类别集 7 类（含 stairs）。待做：多传感器通道融合
-  （数据集仅胸戴 IMU，需自录）。
-- **乙**：✅ 特征消融、✅ 逐被试误差分析（`08` → `error_analysis.md`：S8 全模型最差、
-  静态类互混、walk↔stairs 最难）。待做：超参搜索记录表。
-- **丙**：✅ GRAPH vs PYNATIVE 对比（6.5s vs 6.0s，精度一致）；✅ BiLSTM 基线
-  （`03b`）：**79.76%**，精度≈CNN 但慢 15 倍（5566s vs 362s）；✅ 数据增强消融
-  （`03 --augment`）：**64.5%，负效应**（部分折崩溃到随机水平，全批量下增强需配
-  更小 lr/更多 epoch，见报告 §7）。待做：AMP 对比、超参搜索。
-- **丁**：✅ MindIR 导出（`cnn_full.mindir`，标准化烤入 + 冒烟测试）；✅ 手机验证
-  （见下节）；✅ 轴对齐消融（影响可忽略）。待做：补录 7 类手机数据后微调、
-  开放集拒绝类。
-
-## 已跑通结果（2026-11-23 实测，LOSO）
-
-**7 类 stand/sit/lie/walk/stairs/bike/jog（1398 窗口，当前默认）：**
-
-| 模型 | Accuracy | Macro-F1 | 备注 |
-|---|---|---|---|
-| LogisticRegression | 0.7196 | 0.7191 | sklearn，12 维手工特征 |
-| SVM | 0.7239 | 0.7213 | sklearn |
-| RandomForest | 0.8183 | 0.8175 | sklearn |
-| GradientBoosting | 0.7940 | 0.7954 | sklearn |
-| **SVM（26 维 extended 特征）** | **0.8319** | **0.8287** | sklearn，**当前最佳** |
-| 1D-CNN（原始信号） | 0.7911 | 0.7814 | MindSpore，端到端（80 epoch） |
-| MLP（手工特征） | 0.5172 | 0.4406 | MindSpore 对照组 |
-
-特征消融（4 模型最好值）：full(12)=81.83 / time(9)=79.11 / freq(3)=70.03 /
-extended(26)=83.19——时频互补，扩充特征有增量。
-逐被试：S8 全模型最差（CNN 54%/RF 64%/GBDT 58%），详见 `error_analysis.md`。
-
-**类别粒度消融（5 类 = static/walk/stairs/bike/jog，stand/sit/lie 合并）：**
-
-| 模型 | 7 类 | 5 类 |
-|---|---|---|
-| sklearn 基线最好值 | 83.19（SVM 26 维） | **99.36**（GBDT 26 维） |
-| 1D-CNN | 79.11 | **90.77** |
-| MLP（26 维） | 51.72 | 82.62 |
-
-结论：静态类互混是 7 类的主要误差源（标准化抹掉了重力方向线索）；
-"静止 vs 运动"场景建议以 5 类为主交付、7 类作细粒度对照（详见报告 §7）。
-
-**3 类 walk/bike/jog（600 窗口，历史对比）：** 基线 0.9983~1.0000，CNN 0.9917，MLP 0.9950。
-类别从 3 → 7 后整体难度上升，手工特征基线与 CNN 的差距明显缩小——报告"深度 vs 手工特征"
-章节的核心素材。checkpoint 导出 + 恢复一致性验证通过。
-结果文件在 `outputs/results/`，全部图在 `outputs/figures/`。
-
-## 常见问题
-
-- **图里中文变方块**：图内标签一律用英文（见 `src/visualize.py` 说明），中文写进报告正文。
-- **MindSpore 报 device 错误**：本项目只在 CPU 上跑，确认用的是 `.venv-ms311` 环境的解释器。
-- **跑得慢**：LOSO×10 折 + CNN，CPU 上 7 类 `--epochs 80` 约 6 分钟；调试可先 `--epochs 4`。
-- **导出 MindIR 报 file_format 错误**：本版本 MindSpore 要求大写 `MINDIR`（不是 "MindIR"）。
-- **导出后模型是随机权重（静默失败）**：`load_checkpoint(net=子Cell)` 会因参数名
-  前缀不匹配而全不加载、只打 WARNING（坑 4）。`07` 已用"裸 net 预加载 + 冒烟对比"规避，
-  改动导出逻辑后务必保留冒烟测试。
-- **全量深训发散（NaN）**：300ep/lr=0.02 曾把部署模型训坏（logits NaN，样本内 14.3%）；
-  全量训练用默认 80ep/lr=1e-3（样本内 94.4%）。
-- **跨设备验证首结果（2026-11-23，P01 三段）**：3 个 CSV 都误标为 walk，真实标签见
-  `data/phone_labels.json`（05 会自动用它覆盖 CSV 的 label 列）：
-  ① 手拿着摇一摇（类外）② 走 ③ 慢跑。
-
-  | 文件 | 真实 | 运动强度 vs 胸戴同类 | CNN（部署模型 80ep） | RF（模值特征） |
-  |---|---|---|---|---|
-  | ① 09:56 | shake（类外） | 1.75 m/s²（无参照） | sit×4 stairs×4 stand×1 walk×1 | stand×2 sit×1 walk×1 stairs×4 bike×2 |
-  | ② 11:10 | walk | 2.61 = 1.18x 胸戴 walk | jog×6 lie×2 stairs×2（0/10） | walk×3 stairs×7（3/10） |
-  | ③ 11:11 | jog | 8.54 = **1.04x** 胸戴 jog | jog×7 stairs×3（**7/10**） | **jog×10（10/10）** |
-
-  结论（报告"跨设备"章节直接用）：
-  1. 运动强度跨设备对齐良好（jog 1.04x、walk 1.18x）——口袋与胸戴信号幅度同量级；
-  2. **jog 跨设备：CNN 70%、特征通路 100%**——强周期、高幅度活动可迁移；
-  3. walk 是弱项（CNN 0% / RF 30%）：弱信号 + 与 stairs/jog 特征重叠；
-  4. 类外（摇一摇）被吸收进邻近类，无开放集拒绝——已知局限；
-  5. 训练稳定性案例：全量 300ep/lr=0.02 深训**发散**（logits 变 NaN，样本内 14.3%=随机水平），
-     部署模型回退默认 80ep/lr=1e-3（样本内 94.4%）——全量长训要控制学习率与步数。
-  改进方向：补录手机数据（见上节录制规范）微调 / 特征通路推理 / 增加"拒绝"类。
+- [完整实验报告](docs/报告.md)
+- [UCI mHealth Dataset](https://archive.ics.uci.edu/dataset/319/mhealth+dataset)
+- [MindSpore 安装指南](https://www.mindspore.cn/install)

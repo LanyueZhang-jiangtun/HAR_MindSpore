@@ -1,6 +1,6 @@
 mindspore==2.11.0
-numpy<2          # 必须！numpy>=2 会让 MindSpore 的 Conv1d 等在训练时崩（见 src/models.py 注释）
-scipy
-scikit-learn
-joblib
-matplotlib
+numpy==1.26.4       # MindSpore 2.11.0 的已验证版本；numpy 2.x 会导致部分算子训练失败
+scipy==1.17.1
+scikit-learn==1.9.1
+joblib==1.6.0
+matplotlib==3.11.2

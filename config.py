@@ -1,15 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
-全局配置（四人共享，改这里全项目生效）
-====================================================
-  甲（数据）  : DATASET_ZIP / RATE / WINDOW_SECONDS / USE_LABELS
-  乙（基线）  : 模型见 src/baseline.py 的 BASELINE_MODELS
-  丙（网络）  : EPOCHS / LEARNING_RATE，模型超参见 src/models.py
-  丁（报告）  : 输出目录、图表见 src/visualize.py
-
-运行环境（已装好 MindSpore 2.11.0 / sklearn / numpy）:
-    E:/python_ziliao/.venv-ms311/Scripts/python.exe
-"""
+"""Global paths and experiment settings shared by the project scripts."""
+import os
 from pathlib import Path
 
 # ---------- 路径 ----------
@@ -19,12 +10,17 @@ OUTPUT_DIR = ROOT / "outputs"
 FIG_DIR = OUTPUT_DIR / "figures"
 RESULT_DIR = OUTPUT_DIR / "results"
 
-# 数据集：UCI mHealth（doi:10.24432/C5TW22），72MB 不复制，按候选路径自动定位
+# 数据集：UCI mHealth（doi:10.24432/C5TW22）。可用 HAR_DATASET_ZIP 指定任意路径。
 _ZIP_CANDIDATES = [
     DATA_DIR / "mhealth-uci.zip",
     ROOT.parent / "a机器学习1122" / "mhealth-uci.zip",
 ]
-DATASET_ZIP = next((p for p in _ZIP_CANDIDATES if p.exists()), _ZIP_CANDIDATES[0])
+_DATASET_ENV = os.environ.get("HAR_DATASET_ZIP")
+if _DATASET_ENV:
+    _dataset_path = Path(_DATASET_ENV).expanduser()
+    DATASET_ZIP = (_dataset_path if _dataset_path.is_absolute() else ROOT / _dataset_path).resolve()
+else:
+    DATASET_ZIP = next((p for p in _ZIP_CANDIDATES if p.exists()), _ZIP_CANDIDATES[0])
 
 # ---------- 信号参数 ----------
 RATE = 50                      # 采样率 Hz（胸戴三轴加速度计）

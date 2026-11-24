@@ -22,8 +22,23 @@ from config import DATASET_ZIP, USE_LABELS, WINDOW
 
 def _iter_logs(zip_path):
     """逐被试读取，yield (被试名, xyz (M,3) float32, activity (M,) int)"""
-    with zipfile.ZipFile(zip_path) as archive:
-        for name in sorted(n for n in archive.namelist() if n.endswith(".log")):
+    zip_path = Path(zip_path)
+    if not zip_path.is_file():
+        raise FileNotFoundError(
+            f"mHealth 数据集压缩包不存在：{zip_path}\n"
+            "请将数据集放到 data/mhealth-uci.zip，或设置环境变量 HAR_DATASET_ZIP 指向压缩包。"
+        )
+
+    try:
+        archive_context = zipfile.ZipFile(zip_path)
+    except zipfile.BadZipFile as exc:
+        raise ValueError(f"数据文件不是有效的 ZIP 压缩包：{zip_path}") from exc
+
+    with archive_context as archive:
+        log_files = sorted(n for n in archive.namelist() if n.endswith(".log"))
+        if not log_files:
+            raise ValueError(f"压缩包中没有找到 mHealth .log 数据文件：{zip_path}")
+        for name in log_files:
             with archive.open(name) as handle:
                 data = np.loadtxt(handle, usecols=(0, 1, 2, 23))
             yield Path(name).stem, data[:, :3].astype(np.float32), data[:, -1].astype(int)
