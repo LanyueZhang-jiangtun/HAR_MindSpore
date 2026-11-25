@@ -2,8 +2,8 @@
 """
 【丁/可选】跨设备差异定量诊断
 ====================================================
-真实标签：data/phone_labels.json（CSV 的 label 列误标为 walk，
-2026-11-23 录制者确认：①09:56 手拿着摇一摇(类外) ②11:10 走 ③11:11 慢跑）
+数据：默认目录扫描 P*.csv（当前 P04 九段，2026-11-25：bike×7 / walk×2，
+CSV label 列正确；标错的文件仍可用 data/phone_labels.json 覆盖真实标签）
 
 每个手机文件输出：
 1. 高频 RMS（0.5~8 Hz 带通模值，方位不变量）vs 胸戴同类别中位数
@@ -69,7 +69,7 @@ def main():
     # 1) 胸戴参照：逐类高频 RMS
     chest_rms = {}
     print("== 1) 胸戴参照 高频RMS（运动强度，方位不变量，m/s²）==")
-    for c in ("walk", "jog"):
+    for c in ("walk", "jog", "bike"):
         arr = np.array([hp_rms(w.T) for w in X[y == NAMES.index(c)]])
         chest_rms[c] = arr
         print(f"  {c}: 中位数 {np.median(arr):.3f}  [{np.quantile(arr, .1):.3f}, {np.quantile(arr, .9):.3f}]")
@@ -85,7 +85,7 @@ def main():
     print(f"\n  （RF 特征通路在胸戴数据上的训练集精度: {rf.score(F, y):.4f}）")
 
     print("\n== 2)+3) 逐手机文件（真实标签来自 phone_labels.json）==")
-    for path in sorted(default_dir.glob("P01_*.csv")):
+    for path in sorted(default_dir.glob("P*.csv")):
         rows = list(csv.DictReader(open(path)))
         t = np.array([float(r["time_s"]) for r in rows])
         xyz = np.array([[float(r["ax_m_s2"]), float(r["ay_m_s2"]), float(r["az_m_s2"])] for r in rows])
@@ -101,7 +101,8 @@ def main():
         uniq, cnt = np.unique(pred, return_counts=True)
         dist = ", ".join(f"{NAMES[i]}×{int(c)}" for i, c in zip(uniq, cnt))
 
-        print(f"\n{path.name}  真实={truth}")
+        pos = path.name.split("_")[2]
+        print(f"\n{path.name}  真实={truth}  位置={pos}")
         if truth in chest_rms:
             ref = chest_rms[truth]
             n_true = int((pred == NAMES.index(truth)).sum())

@@ -3,7 +3,8 @@
 【丁】手机真机数据验证：重采样 -> 轴对齐 -> 3s 切窗 -> 加载 checkpoint 推理 -> 预测 vs 真实标签
 ====================================================
 运行: E:/python_ziliao/.venv-ms311/Scripts/python.exe scripts/05_phone_test.py
-      可选: --data-dir 数据目录  --pattern 文件名匹配（默认 ../a机器学习1122 下 P01_*.csv）
+      可选: --data-dir 数据目录  --pattern 文件名匹配（默认 ../a机器学习1122 下 P*.csv，
+      覆盖 P01~P04 全部被试）
 
 前置条件：
   1. 已跑过 scripts/03_train_cnn.py（产出 cnn_full.ckpt + cnn_full_preprocess.npz，
@@ -76,7 +77,7 @@ def main():
     parser = argparse.ArgumentParser()
     default_dir = Path(__file__).resolve().parent.parent.parent / "a机器学习1122"
     parser.add_argument("--data-dir", default=str(default_dir))
-    parser.add_argument("--pattern", default="P01_*.csv")
+    parser.add_argument("--pattern", default="P*.csv")
     parser.add_argument("--labels", default=None,
                         help="文件名->真实标签 的 JSON（覆盖 CSV 的 label 列）；"
                              "默认 data/phone_labels.json（存在时生效）")
