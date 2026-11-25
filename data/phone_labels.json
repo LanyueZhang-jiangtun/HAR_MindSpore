@@ -1,3 +1,5 @@
 {
-  "_note": "文件名->真实活动 的覆盖映射（05 自动读取，key 不存在的条目无效）。旧 P01 三段（2026-11-19：shake/walk/jog）已于 2026-11-25 移除，历史结果见 outputs/results/phone_test_p01_legacy.json。当前 P04 九段（2026-11-25：bike×7/walk×2）CSV label 列正确，无需覆盖；日后标错的文件在此加 文件名->真实标签。"
+  "_note": "文件名->真实活动 的覆盖映射（05 自动读取，key 不存在的条目无效）。P02 的 label 列写的是 run，模型类别集用 jog，需覆盖；static 为类外（静态由 GPS 判定），05 自动将其不计入准确率。旧 P01 三段（2026-11-19）已移除，历史结果见 outputs/results/phone_test_p01_legacy.json。",
+  "P02_run_hand_swing_2026-11-25T14-22-41-358Z.csv": "jog",
+  "P02_run_hand_viewing_2026-11-25T14-23-34-216Z.csv": "jog"
 }
