@@ -3,8 +3,8 @@
 【丁】手机真机数据验证：重采样 -> 轴对齐 -> 3s 切窗 -> 加载 checkpoint 推理 -> 预测 vs 真实标签
 ====================================================
 运行: E:/python_ziliao/.venv-ms311/Scripts/python.exe scripts/05_phone_test.py
-      可选: --data-dir 数据目录  --pattern 文件名匹配（默认 ../a机器学习1122 下 P*.csv，
-      覆盖 P01~P04 全部被试）
+      可选: --data-dir 数据目录（默认仓库内 data/phone/，空时回退 ../a机器学习1122）
+      --pattern 文件名匹配（默认 P*.csv）
 
 前置条件：
   1. 已跑过 scripts/03_train_cnn.py（产出 cnn_full.ckpt + cnn_full_preprocess.npz，
@@ -39,6 +39,14 @@ from config import DATA_DIR, RATE, RESULT_DIR, USE_LABELS, WINDOW
 from src.models import MotionCNN
 
 NAMES = list(USE_LABELS.values())
+
+REPO_PHONE_DIR = Path(__file__).resolve().parent.parent / "data" / "phone"
+LEGACY_PHONE_DIR = Path(__file__).resolve().parent.parent.parent / "a机器学习1122"
+
+
+def phone_data_dir():
+    """仓库内 data/phone/ 有 P*.csv 时优先，否则回退旧目录"""
+    return REPO_PHONE_DIR if any(REPO_PHONE_DIR.glob("P*.csv")) else LEGACY_PHONE_DIR
 
 
 def load_phone_csv(path):
@@ -75,7 +83,7 @@ def align_axes(xyz):
 
 def main():
     parser = argparse.ArgumentParser()
-    default_dir = Path(__file__).resolve().parent.parent.parent / "a机器学习1122"
+    default_dir = phone_data_dir()
     parser.add_argument("--data-dir", default=str(default_dir))
     parser.add_argument("--pattern", default="P*.csv")
     parser.add_argument("--labels", default=None,

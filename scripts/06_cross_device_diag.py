@@ -2,8 +2,8 @@
 """
 【丁/可选】跨设备差异定量诊断
 ====================================================
-数据：默认目录扫描 P*.csv（当前 P04 九段，2026-11-25：bike×7 / walk×2，
-CSV label 列正确；标错的文件仍可用 data/phone_labels.json 覆盖真实标签）
+数据：默认目录扫描 P*.csv（仓库内 data/phone/，当前 23 段：P02×11 / P04×12，
+空时回退旧目录 ../a机器学习1122；标错的文件仍可用 data/phone_labels.json 覆盖真实标签）
 
 每个手机文件输出：
 1. 高频 RMS（0.5~8 Hz 带通模值，方位不变量）vs 胸戴同类别中位数
@@ -28,6 +28,14 @@ from src.dataset import load_raw_windows
 from src.features import extract_features
 
 NAMES = list(USE_LABELS.values())
+
+REPO_PHONE_DIR = Path(__file__).resolve().parent.parent / "data" / "phone"
+LEGACY_PHONE_DIR = Path(__file__).resolve().parent.parent.parent / "a机器学习1122"
+
+
+def phone_data_dir():
+    """仓库内 data/phone/ 有 P*.csv 时优先，否则回退旧目录"""
+    return REPO_PHONE_DIR if any(REPO_PHONE_DIR.glob("P*.csv")) else LEGACY_PHONE_DIR
 
 
 def resample_to_50hz(t, xyz):
@@ -60,7 +68,7 @@ def align_axes(xyz_t3):
 
 
 def main():
-    default_dir = Path(__file__).resolve().parent.parent.parent / "a机器学习1122"
+    default_dir = phone_data_dir()
     labels_file = DATA_DIR / "phone_labels.json"
     overrides = json.loads(labels_file.read_text(encoding="utf-8")) if labels_file.exists() else {}
 

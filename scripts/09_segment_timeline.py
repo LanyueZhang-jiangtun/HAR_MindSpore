@@ -40,7 +40,8 @@ from src.features import extract_features
 
 CLS4 = ["walk", "stairs", "bike", "jog"]
 LABEL_MAP = {"run": "jog"}  # P02 label 写法 run -> 模型类别名 jog
-PHONE_DIR = Path(__file__).resolve().parent.parent.parent / "a机器学习1122"
+REPO_PHONE_DIR = Path(__file__).resolve().parent.parent / "data" / "phone"
+LEGACY_PHONE_DIR = Path(__file__).resolve().parent.parent.parent / "a机器学习1122"
 COLORS = {"walk": "#4c9be8", "stairs": "#f5a623", "bike": "#7ed321", "jog": "#d0021b"}
 
 
@@ -77,10 +78,15 @@ def sliding_windows(xyz, win=WINDOW, stride=None):
     return xyz[idx].transpose(0, 2, 1)
 
 
+def phone_data_dir():
+    """仓库内 data/phone/ 有 P*.csv 时优先，否则回退旧目录"""
+    return REPO_PHONE_DIR if any(REPO_PHONE_DIR.glob("P*.csv")) else LEGACY_PHONE_DIR
+
+
 def load_phone_windows(subj):
     """手机被试数据 -> (X (N,3,W), labels idx)，仅 4 类内窗口"""
     xs, ys = [], []
-    for p in sorted(PHONE_DIR.glob(f"{subj}_*.csv")):
+    for p in sorted(phone_data_dir().glob(f"{subj}_*.csv")):
         t, xyz, raw = load_csv_signal(p)
         label = LABEL_MAP.get(raw, raw)
         if label not in CLS4:
